@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class CardViewerScreen extends StatefulWidget {
   final Map<String, dynamic> document;
@@ -27,6 +29,10 @@ class _CardViewerScreenState extends State<CardViewerScreen>
   double _cardRotation = 0;
 
   bool get _hasBack => widget.document['back_path'] != null;
+
+  String get _currentImagePath => _isFrontVisible
+      ? widget.document['front_path'] as String
+      : widget.document['back_path'] as String;
 
   @override
   void initState() {
@@ -159,6 +165,159 @@ class _CardViewerScreenState extends State<CardViewerScreen>
 
   double? lerpDouble(double a, double b, double t) => a + (b - a) * t;
 
+  // SHARE current side image
+  Future<void> _shareImage() async {
+    try {
+      final file = XFile(_currentImagePath);
+      await Share.shareXFiles(
+        [file],
+        text: widget.document['name'] ?? 'Document',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Share failed: $e')),
+        );
+      }
+    }
+  }
+
+  // DOWNLOAD — copies image to Downloads folder
+  Future<void> _downloadImage() async {
+    try {
+      final sourcePath = _currentImagePath;
+      final docName = (widget.document['name'] ?? 'document')
+          .toString()
+          .replaceAll(' ', '_');
+      final side = _isFrontVisible ? 'front' : 'back';
+      final fileName = '${docName}_$side.jpg';
+
+      // Save to app's external storage (visible in Files app)
+      final dir = await getExternalStorageDirectory();
+      if (dir == null) throw Exception('Storage not available');
+
+      // Go up to root external storage and use Downloads
+      final downloadsPath = dir.path.split('Android')[0] + 'Download';
+      final downloadsDir = Directory(downloadsPath);
+      if (!await downloadsDir.exists()) await downloadsDir.create(recursive: true);
+
+      final destPath = '$downloadsPath/$fileName';
+      await File(sourcePath).copy(destPath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to Downloads/$fileName'),
+            backgroundColor: const Color(0xFF1E1E2E),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: const Color(0xFFFFBE0B),
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    }
+  }
+
+  void _showShareOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${_isFrontVisible ? "Front" : "Back"} Side',
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _shareImage();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6C63FF).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: const Color(0xFF6C63FF), width: 1),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.share_rounded,
+                              color: Color(0xFF6C63FF), size: 36),
+                          SizedBox(height: 8),
+                          Text('Share',
+                              style:
+                                  TextStyle(color: Color(0xFF6C63FF))),
+                          SizedBox(height: 4),
+                          Text('WhatsApp, Gmail...',
+                              style: TextStyle(
+                                  color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _downloadImage();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFBE0B).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: const Color(0xFFFFBE0B), width: 1),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.download_rounded,
+                              color: Color(0xFFFFBE0B), size: 36),
+                          SizedBox(height: 8),
+                          Text('Download',
+                              style:
+                                  TextStyle(color: Color(0xFFFFBE0B))),
+                          SizedBox(height: 4),
+                          Text('Save to Downloads',
+                              style: TextStyle(
+                                  color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -171,6 +330,12 @@ class _CardViewerScreenState extends State<CardViewerScreen>
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share_rounded,
+                color: Color(0xFF6C63FF)),
+            onPressed: _showShareOptions,
+            tooltip: 'Share / Download',
+          ),
           if (_hasBack)
             TextButton.icon(
               onPressed: _flipCard,
@@ -267,7 +432,6 @@ class _CardViewerScreenState extends State<CardViewerScreen>
                   ),
           ),
         ),
-        // Glass overlay
         Container(
           width: 320,
           height: 200,
@@ -290,7 +454,6 @@ class _CardViewerScreenState extends State<CardViewerScreen>
             ),
           ),
         ),
-        // Top shine streak
         Positioned(
           top: 12,
           left: 20,
@@ -308,17 +471,17 @@ class _CardViewerScreenState extends State<CardViewerScreen>
             ),
           ),
         ),
-        // Side label
         Positioned(
           bottom: 12,
           right: 16,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.4),
               borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+              border: Border.all(
+                  color: Colors.white.withOpacity(0.2), width: 1),
             ),
             child: Text(
               showFront ? 'FRONT' : 'BACK',
@@ -357,6 +520,9 @@ class _CardViewerScreenState extends State<CardViewerScreen>
               _HintChip(icon: Icons.swipe, label: 'Swipe to toss'),
               const SizedBox(width: 12),
               _HintChip(icon: Icons.touch_app, label: 'Tap to flip'),
+              const SizedBox(width: 12),
+              _HintChip(
+                  icon: Icons.ios_share_rounded, label: 'Share / Save'),
             ],
           ),
         ],
@@ -383,7 +549,9 @@ class _HintChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: const Color(0xFF6C63FF)),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(label,
+              style:
+                  const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
