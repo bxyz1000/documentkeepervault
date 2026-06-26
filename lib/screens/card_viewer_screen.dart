@@ -28,11 +28,19 @@ class _CardViewerScreenState extends State<CardViewerScreen>
   Offset _cardOffset = Offset.zero;
   double _cardRotation = 0;
 
-  bool get _hasBack => widget.document['back_path'] != null;
+  // Zoom state
+  double _zoomScale = 1.0;
+  static const double _zoomStep = 0.5;
+  static const double _zoomMin = 0.5;
+  static const double _zoomMax = 4.0;
 
-  String get _currentImagePath => _isFrontVisible
-      ? widget.document['front_path'] as String
-      : widget.document['back_path'] as String;
+  bool get _hasBack =>
+      widget.document['back_path'] != null ||
+      widget.document['back_drive_id'] != null;
+
+  String? get _currentImagePath => _isFrontVisible
+      ? widget.document['front_path'] as String?
+      : widget.document['back_path'] as String?;
 
   @override
   void initState() {
@@ -56,11 +64,9 @@ class _CardViewerScreenState extends State<CardViewerScreen>
     _flipAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _flipController, curve: Curves.easeInOutBack),
     );
-
     _floatAnimation = Tween<double>(begin: -6, end: 6).animate(
       CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
     );
-
     _tossAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _tossController, curve: Curves.easeOut),
     );
@@ -86,23 +92,13 @@ class _CardViewerScreenState extends State<CardViewerScreen>
       return;
     }
     setState(() => _isAnimating = true);
-    if (_isFrontVisible) {
-      _flipController.forward().then((_) {
-        setState(() {
-          _isFrontVisible = false;
-          _isAnimating = false;
-        });
-        _flipController.reset();
+    _flipController.forward().then((_) {
+      setState(() {
+        _isFrontVisible = !_isFrontVisible;
+        _isAnimating = false;
       });
-    } else {
-      _flipController.forward().then((_) {
-        setState(() {
-          _isFrontVisible = true;
-          _isAnimating = false;
-        });
-        _flipController.reset();
-      });
-    }
+      _flipController.reset();
+    });
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
@@ -156,54 +152,74 @@ class _CardViewerScreenState extends State<CardViewerScreen>
     );
     snapAnim.addListener(() {
       setState(() {
-        _cardOffset = Offset.lerp(startOffset, Offset.zero, snapAnim.value)!;
-        _cardRotation = lerpDouble(startRotation, 0, snapAnim.value)!;
+        _cardOffset =
+            Offset.lerp(startOffset, Offset.zero, snapAnim.value)!;
+        _cardRotation = _lerpDouble(startRotation, 0, snapAnim.value);
       });
     });
     snapController.forward().then((_) => snapController.dispose());
   }
 
-  double? lerpDouble(double a, double b, double t) => a + (b - a) * t;
+  double _lerpDouble(double a, double b, double t) => a + (b - a) * t;
 
-  // SHARE current side image
+  void _zoomIn() {
+    setState(() {
+      _zoomScale = (_zoomScale + _zoomStep).clamp(_zoomMin, _zoomMax);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _zoomScale = (_zoomScale - _zoomStep).clamp(_zoomMin, _zoomMax);
+    });
+  }
+
+  void _resetZoom() {
+    setState(() => _zoomScale = 1.0);
+  }
+
   Future<void> _shareImage() async {
+    final path = _currentImagePath;
+    if (path == null) return;
     try {
-      final file = XFile(_currentImagePath);
       await Share.shareXFiles(
-        [file],
+        [XFile(path)],
         text: widget.document['name'] ?? 'Document',
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Share failed: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Share failed: $e')));
       }
     }
   }
 
-  // DOWNLOAD — copies image to Downloads folder
   Future<void> _downloadImage() async {
+    final path = _currentImagePath;
+    if (path == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Download is disabled for this version'),
+          backgroundColor: Color(0xFF1E1E2E),
+        ),
+      );
+      return;
+    }
     try {
-      final sourcePath = _currentImagePath;
       final docName = (widget.document['name'] ?? 'document')
           .toString()
           .replaceAll(' ', '_');
       final side = _isFrontVisible ? 'front' : 'back';
       final fileName = '${docName}_$side.jpg';
-
-      // Save to app's external storage (visible in Files app)
       final dir = await getExternalStorageDirectory();
       if (dir == null) throw Exception('Storage not available');
-
-      // Go up to root external storage and use Downloads
-      final downloadsPath = dir.path.split('Android')[0] + 'Download';
+      final downloadsPath = '${dir.path.split('Android')[0]}Download';
       final downloadsDir = Directory(downloadsPath);
-      if (!await downloadsDir.exists()) await downloadsDir.create(recursive: true);
-
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
       final destPath = '$downloadsPath/$fileName';
-      await File(sourcePath).copy(destPath);
-
+      await File(path).copy(destPath);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -219,9 +235,8 @@ class _CardViewerScreenState extends State<CardViewerScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download failed: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Download failed: $e')));
       }
     }
   }
@@ -247,66 +262,35 @@ class _CardViewerScreenState extends State<CardViewerScreen>
             Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
+                  child: _OptionButton(
+                    icon: Icons.share_rounded,
+                    label: 'Share',
+                    sub: 'WhatsApp, Gmail...',
+                    color: const Color(0xFF6C63FF),
                     onTap: () {
                       Navigator.pop(context);
                       _shareImage();
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6C63FF).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: const Color(0xFF6C63FF), width: 1),
-                      ),
-                      child: const Column(
-                        children: [
-                          Icon(Icons.share_rounded,
-                              color: Color(0xFF6C63FF), size: 36),
-                          SizedBox(height: 8),
-                          Text('Share',
-                              style:
-                                  TextStyle(color: Color(0xFF6C63FF))),
-                          SizedBox(height: 4),
-                          Text('WhatsApp, Gmail...',
-                              style: TextStyle(
-                                  color: Colors.grey, fontSize: 11)),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: GestureDetector(
+                  child: _OptionButton(
+                    icon: Icons.download_rounded,
+                    label: 'Download',
+                    sub: 'Disabled for now',
+                    color: Colors.grey,
                     onTap: () {
                       Navigator.pop(context);
-                      _downloadImage();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Download is currently disabled.',
+                          ),
+                          backgroundColor: Color(0xFF1E1E2E),
+                        ),
+                      );
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFBE0B).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: const Color(0xFFFFBE0B), width: 1),
-                      ),
-                      child: const Column(
-                        children: [
-                          Icon(Icons.download_rounded,
-                              color: Color(0xFFFFBE0B), size: 36),
-                          SizedBox(height: 8),
-                          Text('Download',
-                              style:
-                                  TextStyle(color: Color(0xFFFFBE0B))),
-                          SizedBox(height: 4),
-                          Text('Save to Downloads',
-                              style: TextStyle(
-                                  color: Colors.grey, fontSize: 11)),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -330,6 +314,33 @@ class _CardViewerScreenState extends State<CardViewerScreen>
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          // Zoom controls
+          IconButton(
+            icon: const Icon(Icons.zoom_out_rounded, color: Colors.grey),
+            onPressed: _zoomScale > _zoomMin ? _zoomOut : null,
+            tooltip: 'Zoom Out',
+          ),
+          GestureDetector(
+            onTap: _resetZoom,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E2E),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${(_zoomScale * 100).toStringAsFixed(0)}%',
+                style: const TextStyle(
+                    color: Colors.grey, fontSize: 12),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_in_rounded, color: Colors.grey),
+            onPressed: _zoomScale < _zoomMax ? _zoomIn : null,
+            tooltip: 'Zoom In',
+          ),
           IconButton(
             icon: const Icon(Icons.ios_share_rounded,
                 color: Color(0xFF6C63FF)),
@@ -361,19 +372,27 @@ class _CardViewerScreenState extends State<CardViewerScreen>
                       _cardOffset.dx,
                       _cardOffset.dy + floatY,
                     ),
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001)
-                        ..rotateY(_isAnimating && _tossController.isAnimating
-                            ? tossRotation
-                            : _flipAnimation.value * pi)
-                        ..rotateZ(_cardRotation),
-                      child: GestureDetector(
-                        onTap: _flipCard,
-                        onPanUpdate: _onPanUpdate,
-                        onPanEnd: _onPanEnd,
-                        child: _buildCard(),
+                    child: Transform.scale(
+                      scale: _zoomScale,
+                      child: Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateY(
+                              _isAnimating && _tossController.isAnimating
+                                  ? tossRotation
+                                  : _flipAnimation.value * pi)
+                          ..rotateZ(_cardRotation),
+                        child: GestureDetector(
+                          onTap: _flipCard,
+                          onPanUpdate: _zoomScale == 1.0
+                              ? _onPanUpdate
+                              : null,
+                          onPanEnd: _zoomScale == 1.0
+                              ? _onPanEnd
+                              : null,
+                          child: _buildCard(),
+                        ),
                       ),
                     ),
                   );
@@ -390,8 +409,7 @@ class _CardViewerScreenState extends State<CardViewerScreen>
   Widget _buildCard() {
     final frontPath = widget.document['front_path'] as String?;
     final backPath = widget.document['back_path'] as String?;
-    final showFront = _isFrontVisible;
-    final imagePath = showFront ? frontPath : backPath;
+    final imagePath = _isFrontVisible ? frontPath : backPath;
 
     return Stack(
       children: [
@@ -417,12 +435,8 @@ class _CardViewerScreenState extends State<CardViewerScreen>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: imagePath != null
-                ? Image.file(
-                    File(imagePath),
-                    fit: BoxFit.cover,
-                    width: 320,
-                    height: 200,
-                  )
+                ? Image.file(File(imagePath),
+                    fit: BoxFit.cover, width: 320, height: 200)
                 : Container(
                     color: const Color(0xFF1E1E2E),
                     child: const Center(
@@ -432,6 +446,7 @@ class _CardViewerScreenState extends State<CardViewerScreen>
                   ),
           ),
         ),
+        // Glass overlay
         Container(
           width: 320,
           height: 200,
@@ -449,28 +464,10 @@ class _CardViewerScreenState extends State<CardViewerScreen>
               stops: const [0.0, 0.3, 0.6, 1.0],
             ),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1.5,
-            ),
+                color: Colors.white.withOpacity(0.2), width: 1.5),
           ),
         ),
-        Positioned(
-          top: 12,
-          left: 20,
-          right: 80,
-          child: Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  Colors.white.withOpacity(0.6),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
+        // FRONT/BACK badge
         Positioned(
           bottom: 12,
           right: 16,
@@ -484,7 +481,7 @@ class _CardViewerScreenState extends State<CardViewerScreen>
                   color: Colors.white.withOpacity(0.2), width: 1),
             ),
             child: Text(
-              showFront ? 'FRONT' : 'BACK',
+              _isFrontVisible ? 'FRONT' : 'BACK',
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
@@ -504,15 +501,11 @@ class _CardViewerScreenState extends State<CardViewerScreen>
       child: Column(
         children: [
           if (_hasBack)
-            const Text(
-              'Toss or tap to flip card',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            )
+            const Text('Toss or tap to flip card',
+                style: TextStyle(color: Colors.grey, fontSize: 13))
           else
-            const Text(
-              'No back side for this document',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
+            const Text('No back side for this document',
+                style: TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -522,10 +515,52 @@ class _CardViewerScreenState extends State<CardViewerScreen>
               _HintChip(icon: Icons.touch_app, label: 'Tap to flip'),
               const SizedBox(width: 12),
               _HintChip(
-                  icon: Icons.ios_share_rounded, label: 'Share / Save'),
+                  icon: Icons.zoom_in_rounded,
+                  label: '${(_zoomScale * 100).toStringAsFixed(0)}%'),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OptionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sub;
+  final Color color;
+  final VoidCallback onTap;
+  const _OptionButton({
+    required this.icon,
+    required this.label,
+    required this.sub,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color, width: 1),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 36),
+            const SizedBox(height: 8),
+            Text(label, style: TextStyle(color: color)),
+            const SizedBox(height: 4),
+            Text(sub,
+                style:
+                    const TextStyle(color: Colors.grey, fontSize: 11)),
+          ],
+        ),
       ),
     );
   }
@@ -557,3 +592,5 @@ class _HintChip extends StatelessWidget {
     );
   }
 }
+DARTEOF
+echo "card_viewer_screen done"

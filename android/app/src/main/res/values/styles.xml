@@ -16,3 +16,15 @@
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
 </resources>
+```xml
+<resources>
+    <string name="default_web_client_id">910667721570-45lv6cdsdd0ceb7o3ghf5m0jmem3den3.apps.googleusercontent.com</string>
+</resources>
+```
+
+And in `android/app/build.gradle.kts`, confirm you have:
+```
+apply plugin: 'com.google.gms.google-services'
+```
+
+Or simpler: use `google_sign_in` with `serverClientId` in code — already handled by the plugin.

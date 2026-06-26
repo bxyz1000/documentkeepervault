@@ -5,7 +5,10 @@ import 'folder_screen.dart';
 import 'add_document_screen.dart';
 import 'password_vault_screen.dart';
 import 'search_screen.dart';
+import 'settings_screen.dart';
 import '../services/storage_service.dart';
+import '../services/drive_storage_service.dart';
+import '../services/google_auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,20 +50,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final categories = ['Aadhaar Card', 'PAN Card', 'Documents'];
     Map<String, int> newCounts = {};
 
-    for (final cat in categories) {
-      final items = await StorageService.getDocumentsByCategory(cat);
-      newCounts[cat] = items.length;
-    }
-
-    final raw = await _storage.read(key: 'vault_passwords');
-    if (raw != null) {
-      final List decoded = jsonDecode(raw);
-      newCounts['Passwords'] = decoded.length;
+    if (GoogleAuthService.isSignedIn) {
+      for (final cat in categories) {
+        final items = await DriveStorageService.getDocumentsByCategory(cat);
+        newCounts[cat] = items.length;
+      }
+      final passwords = await DriveStorageService.getPasswords();
+      newCounts['Passwords'] = passwords.length;
     } else {
-      newCounts['Passwords'] = 0;
+      for (final cat in categories) {
+        final items = await StorageService.getDocumentsByCategory(cat);
+        newCounts[cat] = items.length;
+      }
+      final raw = await _storage.read(key: 'vault_passwords');
+      if (raw != null) {
+        final List decoded = jsonDecode(raw);
+        newCounts['Passwords'] = decoded.length;
+      } else {
+        newCounts['Passwords'] = 0;
+      }
     }
 
-    setState(() => _counts = newCounts);
+    if (mounted) setState(() => _counts = newCounts);
   }
 
   Future<void> _showCategoryPicker() async {
@@ -93,19 +104,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-
     if (category == null || !mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AddDocumentScreen(category: category),
-      ),
+          builder: (_) => AddDocumentScreen(category: category)),
     );
     _loadCounts();
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = GoogleAuthService.currentUser;
+
     return Scaffold(
       backgroundColor: const Color(0xFF12121F),
       appBar: AppBar(
@@ -127,6 +138,28 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.add_circle_outline_rounded, size: 28),
             onPressed: _showCategoryPicker,
           ),
+          // Settings / account button
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12, left: 4),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor:
+                    const Color(0xFF6C63FF).withOpacity(0.2),
+                backgroundImage: user?.photoUrl != null
+                    ? NetworkImage(user!.photoUrl!)
+                    : null,
+                child: user?.photoUrl == null
+                    ? const Icon(Icons.person_rounded,
+                        color: Color(0xFF6C63FF), size: 18)
+                    : null,
+              ),
+            ),
+          ),
         ],
       ),
       body: Padding(
@@ -134,6 +167,31 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Drive sync indicator
+            if (GoogleAuthService.isSignedIn)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF03DAC6).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: const Color(0xFF03DAC6).withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_done_rounded,
+                        color: Color(0xFF03DAC6), size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Synced to Google Drive • ${user?.email ?? ''}',
+                      style: const TextStyle(
+                          color: Color(0xFF03DAC6), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             const Text('Your Documents',
                 style: TextStyle(fontSize: 18, color: Colors.grey)),
             const SizedBox(height: 20),
@@ -178,8 +236,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                (folder['color'] as Color).withOpacity(0.2),
+                            color: (folder['color'] as Color)
+                                .withOpacity(0.2),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -207,10 +265,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 14),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '$count ${count == 1 ? 'item' : 'items'}',
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 12),
+                          // Count badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: (folder['color'] as Color)
+                                  .withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$count ${count == 1 ? 'item' : 'items'}',
+                              style: TextStyle(
+                                color: folder['color'] as Color,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -225,3 +296,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+EOF
+echo "home_screen done"

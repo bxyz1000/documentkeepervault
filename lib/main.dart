@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'screens/pin_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/biometric_screen.dart'; // ADD THIS
+import 'screens/biometric_screen.dart';
+import 'screens/auth_screen.dart';
+import 'services/google_auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,17 +44,26 @@ class _AuthGateState extends State<AuthGate> {
   final _storage = const FlutterSecureStorage();
   bool _loading = true;
   bool _hasPin = false;
+  bool _googleSignedIn = false;
 
   @override
   void initState() {
     super.initState();
-    _checkPin();
+    _init();
   }
 
-  Future<void> _checkPin() async {
+  Future<void> _init() async {
+    // 1. Try silent Google sign-in restore
+    final account = await GoogleAuthService.signInSilently();
+    final googleIn = account != null;
+
+    // 2. Check PIN
     final pin = await _storage.read(key: 'vault_pin');
+    final hasPin = pin != null;
+
     setState(() {
-      _hasPin = pin != null;
+      _googleSignedIn = googleIn;
+      _hasPin = hasPin;
       _loading = false;
     });
   }
@@ -65,12 +76,19 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    // First time user — no PIN set yet, go to PIN setup
+    // Not signed in with Google → show onboarding
+    if (!_googleSignedIn) {
+      return const AuthScreen();
+    }
+
+    // Google signed in → check PIN
     if (!_hasPin) {
       return const PinScreen(isSetup: true);
     }
 
-    // PIN exists — show biometric screen (has PIN fallback button inside)
+    // Everything ready → biometric/PIN gate
     return const BiometricScreen();
   }
 }
+EOF
+echo "main.dart done"

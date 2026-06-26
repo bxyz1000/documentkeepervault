@@ -1,7 +1,7 @@
 name: vault_x
-description: Offline document vault app
+description: Secure document vault with Google Drive sync
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.0.0
@@ -19,7 +19,17 @@ dependencies:
   local_auth: ^2.1.8
   flutter_native_splash: ^2.3.10
   share_plus: ^7.2.1
-  
+  # Google auth + Drive
+  google_sign_in: ^6.2.1
+  googleapis: ^12.0.0
+  http: ^1.2.0
+  # PDF / document rendering
+  syncfusion_flutter_pdfviewer: ^24.2.9
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  # Image processing (enhance feature)
+  image: ^4.1.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -43,3 +53,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/
+EOF
+echo "pubspec done"
