@@ -18,22 +18,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final _storage = const FlutterSecureStorage();
 
   final List<Map<String, dynamic>> folders = const [
-    {
-      'name': 'Aadhaar Card',
-      'icon': Icons.credit_card,
-      'color': Color(0xFF6C63FF)
-    },
+    {'name': 'Aadhaar Card', 'icon': Icons.credit_card, 'color': Color(0xFF6C63FF)},
     {'name': 'PAN Card', 'icon': Icons.badge, 'color': Color(0xFF03DAC6)},
-    {
-      'name': 'Documents',
-      'icon': Icons.folder_rounded,
-      'color': Color(0xFFFF6584)
-    },
-    {
-      'name': 'Passwords',
-      'icon': Icons.key_rounded,
-      'color': Color(0xFFFFBE0B)
-    },
+    {'name': 'Documents', 'icon': Icons.folder_rounded, 'color': Color(0xFFFF6584)},
+    {'name': 'Passwords', 'icon': Icons.key_rounded, 'color': Color(0xFFFFBE0B)},
   ];
 
   Map<String, int> _counts = {
@@ -52,11 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadCounts(); // refresh when coming back from folder
+    _loadCounts();
   }
 
   Future<void> _loadCounts() async {
-    // Load document counts
     final categories = ['Aadhaar Card', 'PAN Card', 'Documents'];
     Map<String, int> newCounts = {};
 
@@ -65,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
       newCounts[cat] = items.length;
     }
 
-    // Load password count
     final raw = await _storage.read(key: 'vault_passwords');
     if (raw != null) {
       final List decoded = jsonDecode(raw);
@@ -75,6 +61,47 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() => _counts = newCounts);
+  }
+
+  Future<void> _showCategoryPicker() async {
+    final category = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Add to which folder?',
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            ...['Aadhaar Card', 'PAN Card', 'Documents'].map(
+              (cat) => ListTile(
+                leading: const Icon(Icons.folder_rounded,
+                    color: Color(0xFF6C63FF)),
+                title: Text(cat),
+                onTap: () => Navigator.pop(context, cat),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (category == null || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddDocumentScreen(category: category),
+      ),
+    );
+    _loadCounts();
   }
 
   @override
@@ -93,21 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const SearchScreen()),
               );
-              _loadCounts(); // refresh after returning
+              _loadCounts();
             },
           ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, size: 28),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const AddDocumentScreen(category: 'Documents'),
-                ),
-              );
-              _loadCounts(); // refresh after adding
-            },
+            onPressed: _showCategoryPicker,
           ),
         ],
       ),
@@ -121,7 +139,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             Expanded(
               child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
@@ -151,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       }
-                      _loadCounts(); // refresh count after returning
+                      _loadCounts();
                     },
                     child: Container(
                       decoration: BoxDecoration(
@@ -159,7 +178,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: (folder['color'] as Color).withOpacity(0.2),
+                            color:
+                                (folder['color'] as Color).withOpacity(0.2),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -171,18 +191,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color:
-                                  (folder['color'] as Color).withOpacity(0.15),
+                              color: (folder['color'] as Color)
+                                  .withOpacity(0.15),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(folder['icon'] as IconData,
-                                color: folder['color'] as Color, size: 32),
+                                color: folder['color'] as Color,
+                                size: 32),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             folder['name'] as String,
                             style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 14),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14),
                           ),
                           const SizedBox(height: 4),
                           Text(
