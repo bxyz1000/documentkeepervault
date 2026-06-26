@@ -20,8 +20,84 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   bool _isSaving = false;
 
   Future<void> _pickImage(bool isFront) async {
+    // Show bottom sheet to choose camera or gallery
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Choose Source',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, ImageSource.camera),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6C63FF).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: const Color(0xFF6C63FF), width: 1),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.camera_alt_rounded,
+                              color: Color(0xFF6C63FF), size: 36),
+                          SizedBox(height: 8),
+                          Text('Camera',
+                              style: TextStyle(color: Color(0xFF6C63FF))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, ImageSource.gallery),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF03DAC6).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: const Color(0xFF03DAC6), width: 1),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.photo_library_rounded,
+                              color: Color(0xFF03DAC6), size: 36),
+                          SizedBox(height: 8),
+                          Text('Gallery',
+                              style: TextStyle(color: Color(0xFF03DAC6))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
     final picked = await _picker.pickImage(
-      source: ImageSource.camera,
+      source: source,
       imageQuality: 85,
     );
     if (picked == null) return;
@@ -54,14 +130,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final frontPath = await StorageService.saveImage(
       _frontImage!,
-      'front_${timestamp}.jpg',
+      'front_$timestamp.jpg',
     );
 
     String? backPath;
     if (_backImage != null) {
       backPath = await StorageService.saveImage(
         _backImage!,
-        'back_${timestamp}.jpg',
+        'back_$timestamp.jpg',
       );
     }
 
@@ -108,7 +184,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             const SizedBox(height: 12),
             _ImageBox(
               image: _frontImage,
-              label: 'Tap to scan front',
+              label: 'Tap to add front',
               onTap: () => _pickImage(true),
             ),
             const SizedBox(height: 24),
@@ -117,7 +193,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             const SizedBox(height: 12),
             _ImageBox(
               image: _backImage,
-              label: 'Tap to scan back',
+              label: 'Tap to add back',
               onTap: _hasFront ? () => _pickImage(false) : null,
               disabled: !_hasFront,
             ),
@@ -184,7 +260,7 @@ class _ImageBox extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.camera_alt_rounded,
+                    Icons.add_photo_alternate_rounded,
                     size: 40,
                     color: disabled
                         ? Colors.grey.shade700
