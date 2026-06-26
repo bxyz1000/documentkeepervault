@@ -1,0 +1,30 @@
+workflows:
+  android-flutter-release:
+    name: VaultX - Flutter Android
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+
+      - name: Generate app icon
+        script: dart run flutter_launcher_icons
+
+      - name: Generate splash screen
+        script: dart run flutter_native_splash:create
+
+      - name: Build release APK
+        script: flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+
+    publishing:
+      email:
+        recipients:
+          - bxyz1000@gmail.com
+        notify:
+          success: true
+          failure: true
