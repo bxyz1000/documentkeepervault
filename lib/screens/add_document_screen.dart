@@ -572,5 +572,3 @@ class _ImageBox extends StatelessWidget {
     );
   }
 }
-EOF
-echo "add_document_screen done"

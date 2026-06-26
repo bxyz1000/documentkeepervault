@@ -39,5 +39,3 @@
         </intent>
     </queries>
 </manifest>
-EOF
-echo "AndroidManifest done"

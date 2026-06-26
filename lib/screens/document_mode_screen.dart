@@ -345,5 +345,3 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
-EOF
-echo "document_mode_screen done"

@@ -592,5 +592,3 @@ class _HintChip extends StatelessWidget {
     );
   }
 }
-DARTEOF
-echo "card_viewer_screen done"

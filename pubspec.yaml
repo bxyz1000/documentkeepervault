@@ -53,5 +53,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/
-EOF
-echo "pubspec done"

@@ -155,5 +155,3 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
-EOF
-echo "auth_screen done"

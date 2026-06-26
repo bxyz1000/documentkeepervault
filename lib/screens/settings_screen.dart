@@ -328,5 +328,3 @@ class _ActionTile extends StatelessWidget {
     );
   }
 }
-EOF
-echo "settings_screen done"

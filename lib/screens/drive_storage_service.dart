@@ -260,5 +260,3 @@ class DriveStorageService {
     await _saveManifest(manifest);
   }
 }
-EOF
-echo "drive_storage_service done"

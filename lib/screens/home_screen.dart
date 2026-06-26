@@ -296,5 +296,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-EOF
-echo "home_screen done"

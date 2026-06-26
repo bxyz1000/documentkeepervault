@@ -70,5 +70,3 @@ class GoogleAuthService {
     await _googleSignIn.signOut();
   }
 }
-EOF
-echo "google_auth_service done"

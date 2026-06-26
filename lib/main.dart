@@ -90,5 +90,3 @@ class _AuthGateState extends State<AuthGate> {
     return const BiometricScreen();
   }
 }
-EOF
-echo "main.dart done"

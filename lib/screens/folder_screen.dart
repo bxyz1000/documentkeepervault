@@ -349,5 +349,3 @@ class _FolderScreenState extends State<FolderScreen> {
     );
   }
 }
-EOF
-echo "folder_screen done"
