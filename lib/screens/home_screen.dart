@@ -33,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Documents': 0,
     'Passwords': 0,
   };
+  String? _storageMode;
 
   @override
   void initState() {
@@ -49,8 +50,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCounts() async {
     final categories = ['Aadhaar Card', 'PAN Card', 'Documents'];
     Map<String, int> newCounts = {};
+    final storageMode = await _storage.read(key: 'storage_mode');
+    final useDrive = storageMode == 'drive' && GoogleAuthService.isSignedIn;
 
-    if (GoogleAuthService.isSignedIn) {
+    if (useDrive) {
       for (final cat in categories) {
         final items = await DriveStorageService.getDocumentsByCategory(cat);
         newCounts[cat] = items.length;
@@ -71,7 +74,12 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    if (mounted) setState(() => _counts = newCounts);
+    if (mounted) {
+      setState(() {
+        _counts = newCounts;
+        _storageMode = storageMode;
+      });
+    }
   }
 
   Future<void> _showCategoryPicker() async {
@@ -115,7 +123,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = GoogleAuthService.currentUser;
+    final useDrive = _storageMode == 'drive' && GoogleAuthService.isSignedIn;
+    final user = useDrive ? GoogleAuthService.currentUser : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFF12121F),
@@ -168,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Drive sync indicator
-            if (GoogleAuthService.isSignedIn)
+            if (useDrive)
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 8),

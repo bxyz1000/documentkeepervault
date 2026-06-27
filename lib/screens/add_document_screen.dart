@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_service.dart';
 import '../services/drive_storage_service.dart';
@@ -14,6 +15,7 @@ class AddDocumentScreen extends StatefulWidget {
 }
 
 class _AddDocumentScreenState extends State<AddDocumentScreen> {
+  final _storage = const FlutterSecureStorage();
   final _picker = ImagePicker();
   final _nameController = TextEditingController();
   File? _frontImage;
@@ -27,8 +29,23 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   double? _customWidth;
   double? _customHeight;
   bool _modeChosen = false;
+  String? _storageMode;
 
   final List<String> _pageSizes = ['A4', 'Letter', 'A5', 'Custom'];
+
+  bool get _useDrive =>
+      _storageMode == 'drive' && GoogleAuthService.isSignedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStorageMode();
+  }
+
+  Future<void> _loadStorageMode() async {
+    final mode = await _storage.read(key: 'storage_mode');
+    if (mounted) setState(() => _storageMode = mode);
+  }
 
   Future<void> _pickImage(bool isFront) async {
     final source = await showModalBottomSheet<ImageSource>(
@@ -98,7 +115,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
 
-    if (GoogleAuthService.isSignedIn) {
+    if (_useDrive) {
       // Upload to Drive
       final frontId = await DriveStorageService.uploadImage(
           _frontImage!, 'front_$timestamp.jpg');
@@ -359,7 +376,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     disabled: !_hasFront,
                   ),
                   const SizedBox(height: 40),
-                  if (GoogleAuthService.isSignedIn)
+                  if (_useDrive)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Row(

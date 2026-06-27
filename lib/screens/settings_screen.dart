@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../services/google_auth_service.dart';
 import 'auth_screen.dart';
+import 'storage_selection_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,7 +13,31 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const _storage = FlutterSecureStorage();
+  String? _storageMode;
+
   GoogleSignInAccount? get _user => GoogleAuthService.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStorageMode();
+  }
+
+  Future<void> _loadStorageMode() async {
+    final mode = await _storage.read(key: 'storage_mode');
+    if (mounted) setState(() => _storageMode = mode);
+  }
+
+  Future<void> _changeStorage() async {
+    await _storage.delete(key: 'storage_mode');
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const StorageSelectionScreen()),
+      (_) => false,
+    );
+  }
 
   Future<void> _revokeAndSignOut() async {
     final confirm = await showDialog<bool>(
@@ -80,6 +106,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          const Text('Storage',
+              style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1)),
+          const SizedBox(height: 12),
+
+          _SettingsTile(
+            icon: _storageMode == 'local'
+                ? Icons.phone_android_rounded
+                : Icons.cloud_done_rounded,
+            iconColor: const Color(0xFF6C63FF),
+            title: 'Current Storage',
+            subtitle: _storageMode == 'local'
+                ? 'Local Storage'
+                : _storageMode == 'drive'
+                    ? 'Google Drive'
+                    : 'Not selected',
+          ),
+          _ActionTile(
+            icon: Icons.swap_horiz_rounded,
+            iconColor: const Color(0xFF03DAC6),
+            title: 'Change Storage',
+            subtitle: 'Choose Local Storage or Google Drive again',
+            onTap: _changeStorage,
+          ),
+
+          const SizedBox(height: 28),
+
           // Account card
           Container(
             padding: const EdgeInsets.all(20),
@@ -199,7 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
           const Center(
             child: Text(
-              'VaultX v1.1.0 • Data stored in your Google Drive',
+              'VaultX v1.1.0',
               style: TextStyle(color: Colors.grey, fontSize: 11),
             ),
           ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/storage_service.dart';
 import '../services/drive_storage_service.dart';
 import '../services/google_auth_service.dart';
@@ -21,10 +22,15 @@ class FolderScreen extends StatefulWidget {
 }
 
 class _FolderScreenState extends State<FolderScreen> {
+  final _storage = const FlutterSecureStorage();
   List<Map<String, dynamic>> _documents = [];
   bool _selectMode = false;
   Set<int> _selectedIds = {};
   bool _loading = false;
+  String? _storageMode;
+
+  bool get _useDrive =>
+      _storageMode == 'drive' && GoogleAuthService.isSignedIn;
 
   @override
   void initState() {
@@ -35,7 +41,9 @@ class _FolderScreenState extends State<FolderScreen> {
   Future<void> _loadDocuments() async {
     setState(() => _loading = true);
     List<Map<String, dynamic>> docs;
-    if (GoogleAuthService.isSignedIn) {
+    final storageMode = await _storage.read(key: 'storage_mode');
+    final useDrive = storageMode == 'drive' && GoogleAuthService.isSignedIn;
+    if (useDrive) {
       docs = await DriveStorageService.getDocumentsByCategory(
           widget.category);
       // Pre-cache images locally
@@ -52,6 +60,7 @@ class _FolderScreenState extends State<FolderScreen> {
     }
     setState(() {
       _documents = docs;
+      _storageMode = storageMode;
       _loading = false;
     });
   }
@@ -95,7 +104,7 @@ class _FolderScreenState extends State<FolderScreen> {
     if (confirm != true) return;
 
     for (final id in _selectedIds) {
-      if (GoogleAuthService.isSignedIn) {
+      if (_useDrive) {
         await DriveStorageService.deleteDocument(id);
       } else {
         await StorageService.deleteDocument(id);
@@ -322,7 +331,7 @@ class _FolderScreenState extends State<FolderScreen> {
                                 ),
                               ),
                             // Drive badge
-                            if (GoogleAuthService.isSignedIn)
+                            if (_useDrive)
                               Positioned(
                                 top: 8,
                                 left: 8,
