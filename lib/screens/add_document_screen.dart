@@ -290,13 +290,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E1E2E),
         title: Text('Add to ${widget.category}'),
-        leading: _modeChosen
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () =>
-                    setState(() => _modeChosen = false),
-              )
-            : null,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

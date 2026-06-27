@@ -154,6 +154,10 @@ class _DocumentModeScreenState extends State<DocumentModeScreen> {
       backgroundColor: const Color(0xFF0A0A15),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E1E2E),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

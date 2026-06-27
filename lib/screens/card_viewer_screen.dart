@@ -309,6 +309,10 @@ class _CardViewerScreenState extends State<CardViewerScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           widget.document['name'] ?? '',
           style: const TextStyle(fontWeight: FontWeight.bold),

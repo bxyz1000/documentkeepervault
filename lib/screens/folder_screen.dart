@@ -136,6 +136,10 @@ class _FolderScreenState extends State<FolderScreen> {
       backgroundColor: const Color(0xFF12121F),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E1E2E),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
             _selectMode ? '${_selectedIds.length} selected' : widget.category),
         actions: [
