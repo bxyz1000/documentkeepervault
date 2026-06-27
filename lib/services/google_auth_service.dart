@@ -32,31 +32,28 @@ class GoogleAuthService {
 
   /// Interactive Google Sign-In
   static Future<GoogleSignInAccount?> signIn() async {
-    try {
-      final GoogleSignInAccount? account =
-          await _googleSignIn.signIn();
+  debugPrint("STEP 1");
 
-      if (account == null) {
-        throw Exception("User cancelled Google Sign-In.");
-      }
+  final account = await _googleSignIn.signIn();
 
-      await _storage.write(
-        key: "google_signed_in",
-        value: "true",
-      );
+  debugPrint("STEP 2");
 
-      debugPrint("Google Sign-In Successful");
-      debugPrint("User: ${account.email}");
-
-      return account;
-    } catch (e, s) {
-      debugPrint("========== GOOGLE SIGN-IN ERROR ==========");
-      debugPrint(e.toString());
-      debugPrint(s.toString());
-      rethrow;
-    }
+  if (account == null) {
+    debugPrint("User cancelled");
+    return null;
   }
 
+  debugPrint("STEP 3 ${account.email}");
+
+  await _storage.write(
+    key: "google_signed_in",
+    value: "true",
+  );
+
+  debugPrint("STEP 4");
+
+  return account;
+}
   static Future<Map<String, String>> getAuthHeaders() async {
     final account = currentUser;
     if (account == null) {

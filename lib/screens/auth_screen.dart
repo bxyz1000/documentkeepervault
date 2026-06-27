@@ -14,12 +14,16 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _error;
 
   Future<void> _handleSignIn() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  setState(() {
+    _loading = true;
+    _error = null;
+  });
+
+  try {
     final account = await GoogleAuthService.signIn();
+
     if (!mounted) return;
+
     if (account != null) {
       Navigator.pushReplacement(
         context,
@@ -28,10 +32,18 @@ class _AuthScreenState extends State<AuthScreen> {
     } else {
       setState(() {
         _loading = false;
-        _error = 'Sign-in cancelled or failed. Please try again.';
+        _error = "Google Sign-In returned null.";
       });
     }
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() {
+      _loading = false;
+      _error = "ERROR: $e";
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {
